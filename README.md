@@ -1,61 +1,115 @@
-# SignalEscrow — pay-per-signal on Bitcoin Cash
+# SignalPass — pay per alert on Bitcoin Cash
 
-> **Pre-hackathon prototype.** Built and tested on chipnet on 2026-10-28, before
-> BCH BLAZE 2026 started. It is published as the "before" state of the BLAZE
-> project: contracts, tests and a command-line chipnet run, with no app and no
-> wallet connection. What is new during BLAZE is listed in the BLAZE repo.
+SignalPass is a paid alert feed where the subscriber's money never leaves their control.
 
-A subscriber locks BCH (or a CashToken stablecoin such as PUSD) in a covenant.
-The signal provider can take a fixed price, at most once per interval, and only
-by publishing the signal's hash on chain. The subscriber can take everything
-back at any time.
+- You deposit BCH into **your own escrow contract**. Only you can empty it.
+- The provider can take a fixed price per alert, at most once per interval, and **only by writing
+  the alert's sha256 fingerprint on chain** in the same transaction.
+- You read the alert at once. Everyone else sees the full text on chain 30 minutes later, so anyone
+  can check that the provider never changed an alert after it was paid for.
+- One tap refunds everything, signed by your own wallet.
 
-No server holds the money. The rules are enforced by the contract itself.
+The wallet connection uses **WizardConnect** (tested with Selene on mainnet). The server only builds
+unsigned transactions; your wallet signs them.
 
-## Rules enforced on chain
+Built for **BCH BLAZE 2026**.
+
+## Try it
+
+1. Open the app, press **Connect wallet**, and scan the QR code with Selene (or tap *Open in wallet* on the phone).
+2. Deposit at least 10,000 sats.
+3. When an alert is published, 2,000 sats move from your escrow to the provider, and the alert appears with a
+   ✓ that your browser checked against the on-chain fingerprint.
+4. Press **Refund everything** at any time.
+
+## How it works
+
+```
+ subscriber wallet (Selene)            SignalPass server                  BCH chain
+ ───────────────────────────           ────────────────────               ─────────
+ connect via WizardConnect  ─xpubs──▶  derive escrow for receive/0
+ sign deposit              ◀─request─  build P2PKH → escrow tx  ──────────▶ escrow funded
+                                       alert published:
+                                         hash = sha256(salt ‖ text)
+                                         charge each escrow     ──────────▶ price → provider,
+                                                                            rest → same escrow,
+                                                                            OP_RETURN <hash>
+ sees text + salt, checks hash         after 30 min: reveal tx  ──────────▶ OP_RETURN "SPv1" salt text
+ sign refund               ◀─request─  build refund tx          ──────────▶ everything → subscriber
+```
+
+### Rules enforced by the contract (`SignalEscrow.cash`)
 
 | Rule | How |
 |---|---|
 | Only the provider can charge | provider pubkey hash + signature |
-| Exact price, paid to the provider | `tx.outputs[0]` locking bytecode and value (token amount in the PUSD version) |
+| Exact price, paid to the provider | `tx.outputs[0]` locking bytecode and value |
 | At most one charge per interval | relative timelock `this.age >= minInterval` (BIP68) |
-| The rest goes back to the same escrow | `tx.outputs[1]` must equal the input's locking bytecode, minus at most `maxFee` |
-| Every charge publishes the signal | `tx.outputs[2]` must be OP_RETURN with the 32-byte signal hash |
-| Nothing else is paid out | exactly 3 outputs (and 1 input in the token version) |
+| The rest goes back to the same escrow | `tx.outputs[1]` locks to the same contract, minus at most `maxFee` |
+| Every charge publishes the alert's fingerprint | `tx.outputs[2]` is OP_RETURN with the 32-byte hash |
 | Subscriber can always leave | `refund` needs only the subscriber's signature |
 
-## Contracts
+Defaults: price 2,000 sats, interval 1 block, max fee 1,000 sats, minimum deposit 10,000 sats.
 
-- `SignalEscrow.cash` — priced in BCH satoshis
-- `SignalEscrowToken.cash` — priced in a fungible CashToken (e.g. PUSD)
+## Before and during BLAZE
 
-## Tests
+The contract and its command-line chipnet test were built **before** the hackathon, on 2026-10-28.
+They are the first commit of this repository, copied unchanged from
+[mee0120/signal-escrow-proto](https://github.com/mee0120/signal-escrow-proto) (commit 7ab7932).
+The old README is kept as [PREHACKATHON.md](PREHACKATHON.md), and the old static demo page as
+[prehackathon-demo.html](prehackathon-demo.html).
 
-```
+Built **during** BLAZE (every commit after `3a0d36f`):
+
+- the web app and server (`src/`, `web/`, `public/`)
+- WizardConnect wallet connection, with deposit and refund signed in the subscriber's wallet
+- per-subscriber escrows derived from the wallet's receive/0 key
+- the commit-then-reveal flow: salted sha256 in each charge, public reveal transaction after a delay
+- browser-side verification of every alert against its on-chain fingerprint
+- the public track record
+- mainnet deployment and tests (`test/app.test.mjs`)
+
+## Run it yourself
+
+```bash
 npm install
-npm run build
-npm test        # 12/12 (BCH) and 8/8 (token) on the CashScript mock network
+npm run build          # bundles web/app.js into public/app.js
+npm test               # app tests on the CashScript mock network, plus the original contract tests
+npm run keygen         # writes PROVIDER_KEY to .env (chmod 600) and prints only the address
 ```
 
-Each "REJECT" test requires the contract itself to reject the transaction,
-not a fee or builder check.
+Start the server with these environment variables:
 
-## Live run on chipnet (2026-10-28)
+| Variable | Meaning |
+|---|---|
+| `PROVIDER_KEY` | provider private key (hex). Keep it secret. |
+| `ADMIN_TOKEN` | token for publishing alerts |
+| `NETWORK` | `mainnet` (default) or `chipnet` |
+| `REVEAL_DELAY_MINUTES` | default 30 |
+| `STATE_FILE` | default `data/state.json` |
 
-Escrow address: `bchtest:pdsr3y2ymn48a4kkar82ydfwzgvr3ggtv9glqpe75h4t7e4n9rgsy2t5zrkmc`
-Settings: price 10,000 sats, interval 6 blocks, max fee 2,000 sats.
+```bash
+set -a; . ./.env; set +a; ADMIN_TOKEN=... npm start
+```
 
-| Step | Result | Transaction |
-|---|---|---|
-| 1. Subscriber deposits 50,000 sats | accepted | [978f22fc…f420](https://chipnet.imaginary.cash/tx/978f22fc35a516bba39896734dea15d1dc9683d86a3314e8761b0261717df420) |
-| 2. Provider charges before 6 blocks | rejected by the network: `non-BIP68-final` | — |
-| 3. Provider charges "BUY ETH" after 6 blocks | accepted: 10,000 sats to provider, 39,000 back to escrow, sha256 `2f9d7cdb…4374` in OP_RETURN | [45dac64b…df3b](https://chipnet.imaginary.cash/tx/45dac64bd15004fe40a1c4ec3fe3423134814a070a0f0a5969cc71c62aacdf3b) |
-| 4. Provider charges "SELL ETH" right away | rejected by the network: `non-BIP68-final` (the interval restarts with every charge) | — |
-| 5. Subscriber refunds | accepted: escrow emptied, 38,000 sats back to the subscriber | [92fee9c3…93eb](https://chipnet.imaginary.cash/tx/92fee9c392aff02596a907f811e8731e10b082ef77b2a163dc60ed426d7f93eb) |
+Publish an alert (1–180 bytes):
 
-Anyone can check a signal: `sha256("BUY ETH")` =
-`2f9d7cdb0021a365f6b9911ec063c0a06860fcddc2fb15f909d3b399be404374`,
-the same value stored in the charge transaction.
+```bash
+curl -X POST https://<host>/api/admin/alert -H "x-admin-token: $ADMIN_TOKEN" \
+  -H 'content-type: application/json' -d '{"text":"..."}'
+```
 
-Reproduce with `chipnet.mjs` (`keygen`, `status`, `deposit`, `charge`, `refund`).
-Keys are kept in `.env` (chmod 600, git-ignored) and are never printed.
+The provider address needs a small balance (a few thousand sats) to pay for reveal transactions;
+each charge also refills it.
+
+## Limits
+
+- The server keeps subscriber and alert records in a JSON file. Every payment is on chain, but the
+  list of alerts shown on the page comes from that file.
+- WizardConnect does not report the wallet's network, so the app checks the xpub prefix and refuses
+  testnet wallets on mainnet.
+- Alerts are public after the delay by design. The product sells speed, not secrecy.
+
+## License
+
+MIT

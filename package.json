@@ -1,15 +1,26 @@
 {
-  "name": "bch-signal-escrow-proto",
-  "version": "0.1.0",
+  "name": "signalpass",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "cashc SignalEscrow.cash -o SignalEscrow.json && cashc SignalEscrowToken.cash -o SignalEscrowToken.json",
-    "test": "node test.mjs && node test_token.mjs"
+    "start": "node src/server.js",
+    "build": "esbuild web/app.js --bundle --format=esm --target=es2022 --minify --outfile=public/app.js",
+    "build:contracts": "cashc SignalEscrow.cash -o SignalEscrow.json && cashc SignalEscrowToken.cash -o SignalEscrowToken.json",
+    "test": "node --test test/app.test.mjs && node test.mjs && node test_token.mjs",
+    "keygen": "node scripts/keygen.mjs"
   },
   "dependencies": {
     "@bitauth/libauth": "3.1.0-next.8",
+    "@wizardconnect/core": "^0.2.10",
+    "@wizardconnect/dapp": "^0.2.7",
     "cashc": "0.14.0",
-    "cashscript": "0.14.0"
+    "cashscript": "0.14.0",
+    "esbuild": "^0.24.2",
+    "express": "^4.22.1",
+    "qrcode": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

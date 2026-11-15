@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SignalPass</title>
+<meta name="description" content="Pay-per-alert on Bitcoin Cash. Your BCH stays in your own escrow until an alert arrives, and you can take it back at any time.">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="wrap brand"><img src="icon.svg" alt="" width="28" height="28"><b>SignalPass</b><span class="tag">Bitcoin Cash · pay per alert</span></div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Pay only when an alert arrives.</h1>
+    <p>Your BCH sits in an escrow contract that only you can empty. The provider can take
+      <b id="price">…</b> per alert, at most <span id="interval">…</span>, and only by writing the
+      alert's fingerprint on chain. Everyone else sees the full text on chain <span id="reveal">…</span> later.</p>
+  </section>
+
+  <section class="card try">
+    <h2>Try it in one minute</h2>
+    <ol>
+      <li>Open <b>Selene</b> on your phone (mainnet, with a little BCH).</li>
+      <li>Press <b>Connect wallet</b> and scan the code, or tap <i>Open in wallet</i> on the phone.</li>
+      <li>Deposit at least <b id="minDeposit">…</b>. You can refund everything with one tap.</li>
+    </ol>
+    <button id="connect" class="primary">Connect wallet</button>
+    <div id="pair" class="pair" hidden>
+      <div id="qr"></div>
+      <a id="deeplink" class="button">Open in wallet</a>
+      <p class="muted">Scan with Selene → WizardConnect.</p>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="account" class="card" hidden>
+    <div class="row head"><h2>Your escrow</h2><button id="reload" class="ghost">Refresh</button></div>
+    <dl class="stats">
+      <div><dt>In escrow</dt><dd id="escrowSats">–</dd></div>
+      <div><dt>Alerts left</dt><dd id="alertsLeft">–</dd></div>
+      <div><dt>In your wallet</dt><dd id="walletSats">–</dd></div>
+    </dl>
+    <p class="addr">Escrow <span class="mono" id="escrow"></span></p>
+    <p class="addr">Refunds go to <span class="mono" id="me"></span></p>
+    <div class="actions">
+      <label>Amount (sats) <input id="amount" type="number" min="10000" step="1000" inputmode="numeric"></label>
+      <button id="deposit" class="primary">Deposit</button>
+      <button id="refund" class="danger">Refund everything</button>
+    </div>
+    <p id="lasttx" class="muted"></p>
+    <h3>Your alerts</h3>
+    <div id="myfeed"></div>
+  </section>
+
+  <section class="card">
+    <h2>Public track record</h2>
+    <p class="muted">Each alert's fingerprint is on chain the moment subscribers pay. The text follows after the delay, so anyone can check the provider never changed an alert after the fact.</p>
+    <div id="public"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="card how">
+    <h2>What the contract enforces</h2>
+    <ul>
+      <li>Only the provider can charge, and only the exact price.</li>
+      <li>At most one charge per interval (a relative timelock).</li>
+      <li>Every charge must carry the alert's sha256 fingerprint in OP_RETURN.</li>
+      <li>The rest goes straight back into your escrow.</li>
+      <li>You can refund everything at any time with your own signature. No one can stop it.</li>
+    </ul>
+    <p class="muted">Source: <a href="https://github.com/mee0120/signalpass" target="_blank" rel="noopener">github.com/mee0120/signalpass</a></p>
+  </section>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
