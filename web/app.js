@@ -2,7 +2,7 @@
 // asks it to sign deposit/refund transactions built by the server, and shows
 // the alerts with a local check of every on-chain commitment.
 import { DappConnectionManager } from '@wizardconnect/dapp';
-import { initiateDappRelay, parseExtendedJson } from '@wizardconnect/core';
+import { initiateDappRelay } from '@wizardconnect/core';
 import QRCode from 'qrcode';
 import { decodeHdPublicKey } from '@bitauth/libauth';
 
@@ -108,7 +108,7 @@ async function signAndSend(kind, body = {}) {
     status(kind === 'deposit' ? 'Building the deposit…' : 'Building the refund…');
     const built = await api('/api/build/' + kind, body);
     status('Approve the transaction in your wallet…');
-    const res = await manager.signTransaction({ transaction: parseExtendedJson(built.request), inputPaths: built.inputPaths });
+    const res = await manager.signTransaction({ transaction: JSON.parse(built.request), inputPaths: built.inputPaths });
     if (res.error || !res.signedTransaction) throw new Error(res.error || 'the wallet did not sign');
     const { txid } = await api('/api/broadcast', { signedTransaction: res.signedTransaction, kind });
     status(`${kind === 'deposit' ? 'Deposit' : 'Refund'} sent.`, 'ok');
