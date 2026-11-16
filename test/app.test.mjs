@@ -51,7 +51,9 @@ test('deposit request: wallet UTXOs in, exact amount to the escrow, change back,
   assert.ok(outs[1].valueSatoshis > 9_000n && outs[1].valueSatoshis < 10_000n); // change minus fee
   // the wire format round-trips through WizardConnect's parser
   const back = parseExtendedJson(toWire(wc));
-  assert.ok(back.transaction.inputs[0].outpointTransactionHash instanceof Uint8Array);
+  const decoded = decodeTransactionCommon(hexToBin(back.transaction));   // the transaction goes as hex
+  assert.equal(decoded.outputs[0].valueSatoshis, 20_000n);
+  assert.equal(binToHex(decoded.inputs[0].outpointTransactionHash), binToHex(wc.transaction.inputs[0].outpointTransactionHash));
   assert.equal(back.sourceOutputs[0].valueSatoshis, 30_000n);
   await assert.rejects(buildDeposit({ provider, network: 'chipnet', keys, escrowAddress: s.escrowAddress, amount: 100_000n }), /not enough BCH/);
 });

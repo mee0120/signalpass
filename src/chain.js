@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { Contract, SignatureTemplate, TransactionBuilder, placeholderP2PKHUnlocker,
   placeholderPublicKey, placeholderSignature } from 'cashscript';
 import { secp256k1, hash160, hexToBin, binToHex, sha256, utf8ToBin, encodeCashAddress,
-  stringify } from '@bitauth/libauth';
+  stringify, encodeTransaction } from '@bitauth/libauth';
 
 export const artifact = JSON.parse(readFileSync(new URL('../SignalEscrow.json', import.meta.url)));
 export const DUST = 546n;
@@ -125,5 +125,7 @@ export async function buildReveal({ provider, prov, saltHex, text }) {
 }
 
 /** JSON for the browser: Uint8Array/bigint in the extended format WizardConnect parses. */
-export const toWire = (obj) => stringify(obj);
+// WizardConnect wire format: the unsigned transaction as hex (as in the Riften docs),
+// source outputs with tagged byte arrays and bigints ("<Uint8Array: 0x..>", "<bigint: Nn>").
+export const toWire = (wc) => stringify({ ...wc, transaction: binToHex(encodeTransaction(wc.transaction)) });
 export const MAX_ALERT_BYTES = 180;
