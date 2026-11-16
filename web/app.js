@@ -56,16 +56,27 @@ async function connect() {
   $('pair').hidden = false;
 }
 
-async function onWalletReady() {
+let readyTimer = null;
+async function onWalletReady(msg) {
+  const paths = manager.getSessionPaths();
+  const receive = paths.find((p) => p.name === 'receive');
+  if (!receive || !manager.hasPath(0)) {
+    // Some wallets send wallet_ready more than once while pairing; wait for the one with keys.
+    const seen = JSON.stringify({ protocol: manager.protocol, paths: paths.map((p) => [p.name, String(p.xpub).slice(0, 4)]),
+      session: msg && msg.session ? Object.keys(msg.session) : null });
+    console.warn('SignalPass: wallet_ready without a receive key yet', seen);
+    status('Connected. Waiting for the wallet to share its addresses…');
+    clearTimeout(readyTimer);
+    readyTimer = setTimeout(() => status(`The wallet did not share a receive address (${seen}). Disconnect in the wallet and connect again.`, 'err'), 20_000);
+    return;
+  }
+  clearTimeout(readyTimer);
   $('pair').hidden = true;
   // WizardConnect does not say which network the wallet is on; the receive xpub does.
-  // Other paths (e.g. extensions) are ignored here.
-  const receive = manager.getSessionPaths().find((p) => p.name === 'receive');
-  const decoded = receive ? decodeHdPublicKey(receive.xpub) : 'no receive path';
+  const decoded = decodeHdPublicKey(receive.xpub);
   const want = cfg.network === 'mainnet' ? 'mainnet' : 'testnet';
   if (typeof decoded === 'string' || decoded.network !== want) {
     const got = typeof decoded === 'string' ? decoded : decoded.network;
-    console.warn('SignalPass: wallet paths', manager.getSessionPaths().map((p) => [p.name, p.xpub.slice(0, 4)]));
     status(`Your wallet is not on ${cfg.network} (it reported: ${got}). Switch the wallet to ${cfg.network} and connect again.`, 'err');
     reset();
     return;
