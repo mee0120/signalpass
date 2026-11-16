@@ -4,6 +4,7 @@
 import { DappConnectionManager } from '@wizardconnect/dapp';
 import { initiateDappRelay, parseExtendedJson } from '@wizardconnect/core';
 import QRCode from 'qrcode';
+import { decodeHdPublicKey } from '@bitauth/libauth';
 
 const $ = (id) => document.getElementById(id);
 const EXPLORER = 'https://blockchair.com/bitcoin-cash/transaction/';
@@ -57,10 +58,15 @@ async function connect() {
 
 async function onWalletReady() {
   $('pair').hidden = true;
-  const paths = manager.getSessionPaths();
-  // WizardConnect does not say which network the wallet is on; the xpub prefix does.
-  if (!paths.length || !paths.every((p) => p.xpub.startsWith(cfg.network === 'mainnet' ? 'xpub' : 'tpub'))) {
-    status(`Your wallet is on the wrong network. Switch Selene to ${cfg.network === 'mainnet' ? 'mainnet' : cfg.network} and connect again.`, 'err');
+  // WizardConnect does not say which network the wallet is on; the receive xpub does.
+  // Other paths (e.g. extensions) are ignored here.
+  const receive = manager.getSessionPaths().find((p) => p.name === 'receive');
+  const decoded = receive ? decodeHdPublicKey(receive.xpub) : 'no receive path';
+  const want = cfg.network === 'mainnet' ? 'mainnet' : 'testnet';
+  if (typeof decoded === 'string' || decoded.network !== want) {
+    const got = typeof decoded === 'string' ? decoded : decoded.network;
+    console.warn('SignalPass: wallet paths', manager.getSessionPaths().map((p) => [p.name, p.xpub.slice(0, 4)]));
+    status(`Your wallet is not on ${cfg.network} (it reported: ${got}). Switch the wallet to ${cfg.network} and connect again.`, 'err');
     reset();
     return;
   }
