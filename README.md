@@ -67,6 +67,7 @@ Built **during** BLAZE (every commit after `3a0d36f`):
 - the commit-then-reveal flow: salted sha256 in each charge, public reveal transaction after a delay
 - browser-side verification of every alert against its on-chain fingerprint
 - the public track record
+- rebuilding the track record from the chain after a restart (`src/recover.js`)
 - mainnet deployment and tests (`test/app.test.mjs`)
 
 ## Run it yourself
@@ -92,7 +93,14 @@ Start the server with these environment variables:
 set -a; . ./.env; set +a; ADMIN_TOKEN=... npm start
 ```
 
-Publish an alert (1–180 bytes):
+Publish an alert (1–180 bytes). The script reads `ADMIN_TOKEN` from `.env`, publishes, and keeps a
+free host awake until the text is revealed on chain:
+
+```bash
+npm run alert -- "Deck the Pixels: 538 registered, 9 cash prizes"
+```
+
+Or call the API directly:
 
 ```bash
 curl -X POST https://<host>/api/admin/alert -H "x-admin-token: $ADMIN_TOKEN" \
@@ -104,8 +112,12 @@ each charge also refills it.
 
 ## Limits
 
-- The server keeps subscriber and alert records in a JSON file. Every payment is on chain, but the
-  list of alerts shown on the page comes from that file.
+- The server keeps subscriber and alert records in a JSON file. If the host restarts with an empty
+  disk, the server rebuilds the public track record from the provider address's history on chain
+  (charges carry the hash, reveals carry the salt and text). `npm run chain-check` prints what it would
+  rebuild. An alert that was charged but not yet revealed when the disk was lost stays a bare
+  commitment, because its text only existed on the server.
+- Subscribers reconnect their wallet after such a restart; their escrows are derived again from their keys.
 - WizardConnect does not report the wallet's network, so the app checks the xpub prefix and refuses
   testnet wallets on mainnet.
 - Alerts are public after the delay by design. The product sells speed, not secrecy.

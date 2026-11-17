@@ -5,6 +5,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { ElectrumNetworkProvider, MockNetworkProvider } from 'cashscript';
 import { rules, providerWallet, buildDeposit, buildRefund, toWire, MAX_ALERT_BYTES } from './chain.js';
 import { Service, Store } from './service.js';
+import { recoverAlerts, electrumHistory, electrumBlockTime } from './recover.js';
 
 export function createApp({ provider, prov, r, store, adminToken, revealDelayMs, broadcast }) {
   const svc = new Service({ provider, prov, r, store, revealDelayMs });
@@ -78,6 +79,18 @@ if (process.argv[1] && new URL(import.meta.url).pathname === process.argv[1]) {
     revealDelayMs: Number(process.env.REVEAL_DELAY_MINUTES || 30) * 60_000,
     broadcast: (hex) => provider.sendRawTransaction(hex),
   });
+  // a free host may restart with an empty disk: rebuild the track record from the provider's history
+  if (r.network !== 'mock') {
+    (async () => {
+      const n = await recoverAlerts({
+        store, providerAddress: prov.address, network: r.network,
+        history: await electrumHistory(provider, prov.address),
+        raw: (txid) => provider.getRawTransaction(txid),
+        blockTime: (h) => electrumBlockTime(provider, h),
+      });
+      console.log(`recovered ${n} alert(s) from chain`);
+    })().catch((e) => console.error('recover:', e.message));
+  }
   setInterval(() => svc.tick().catch((e) => console.error('tick:', e.message)), 60_000);
   const port = Number(process.env.PORT || 3000);
   app.listen(port, () => console.log(`SignalPass on :${port} (${r.network}), provider ${prov.address}`));

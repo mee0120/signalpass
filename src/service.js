@@ -138,7 +138,7 @@ export class Service {
       this.store.save();
     }
     for (const a of this.d.alerts) {
-      if (a.revealTx || !a.charges.length || this.now() < a.revealAt) continue;
+      if (a.revealTx || !a.text || !a.charges.length || this.now() < a.revealAt) continue; // recovered alerts without text cannot be revealed
       try {
         const tb = await buildReveal({ provider: this.provider, prov: this.prov, saltHex: a.salt, text: a.text });
         if (!tb) { this.log(`reveal of alert ${a.id} waits for provider funds`); continue; }

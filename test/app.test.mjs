@@ -10,6 +10,7 @@ import { parseExtendedJson } from '@wizardconnect/core';
 import { rules, providerWallet, escrowFor, buildDeposit, buildRefund, commitment, p2pkhAddress, toWire } from '../src/chain.js';
 import { Service, Store } from '../src/service.js';
 import { createApp } from '../src/server.js';
+import { recoverAlerts } from '../src/recover.js';
 
 const r = rules({ NETWORK: 'chipnet' });
 const keyPair = () => { const priv = generatePrivateKey(); return { priv, pub: binToHex(secp256k1.derivePublicKeyCompressed(priv)) }; };
@@ -145,4 +146,47 @@ test('HTTP API: session, wallet, deposit request, admin alert and feeds', async 
     assert.equal((await get('/api/public')).body[0].text, null);
     assert.equal((await get('/api/feed')).status, 401);
   } finally { server.close(); }
+});
+
+test('after a restart with an empty disk, the public track record is rebuilt from the chain', async () => {
+  const { provider, prov, svc, advance } = setup();
+  const s1 = svc.session(walletKeys()), s2 = svc.session(walletKeys());
+  provider.addUtxo(s1.escrowAddress, randomUtxo({ satoshis: 20_000n }));
+  provider.addUtxo(s2.escrowAddress, randomUtxo({ satoshis: 20_000n }));
+  const revealed = await svc.publish('Reddit Daily Games: 412 registered');
+  advance(31 * 60_000);
+  await svc.tick();
+  assert.ok(revealed.revealTx);
+  // the provider's history as an indexer would list it: the charges and the reveal
+  const history = [...revealed.charges.map((c) => c.txid), revealed.revealTx].map((txid, i) => ({ txid, height: 100 + i }));
+  const fresh = new Store(null);
+  const added = await recoverAlerts({ store: fresh, providerAddress: prov.address, network: 'chipnet', history,
+    raw: (txid) => provider.getRawTransaction(txid), blockTime: (h) => 1_800_000_000_000 + h * 600_000 });
+  assert.equal(added, 1);
+  const svc2 = new Service({ provider, prov, r, store: fresh, log: () => {} });
+  const [pub] = svc2.publicFeed();
+  assert.equal(pub.text, revealed.text);
+  assert.equal(pub.hash, revealed.hash);
+  assert.equal(pub.revealTx, revealed.revealTx);
+  assert.equal(pub.subscribersCharged, 2);
+  assert.equal(commitment(pub.salt, pub.text), pub.hash);
+  // running it again adds nothing
+  assert.equal(await recoverAlerts({ store: fresh, providerAddress: prov.address, network: 'chipnet', history,
+    raw: (txid) => provider.getRawTransaction(txid), blockTime: () => 0 }), 0);
+});
+
+test('an alert recovered before its reveal shows the commitment only and is never revealed without text', async () => {
+  const { provider, prov, svc, advance } = setup();
+  const s = svc.session(walletKeys());
+  provider.addUtxo(s.escrowAddress, randomUtxo({ satoshis: 20_000n }));
+  const a = await svc.publish('QNX: 1,468 registered');
+  const fresh = new Store(null);
+  await recoverAlerts({ store: fresh, providerAddress: prov.address, network: 'chipnet',
+    history: [{ txid: a.charges[0].txid, height: 0 }], raw: (txid) => provider.getRawTransaction(txid), blockTime: () => 0 });
+  const svc2 = new Service({ provider, prov, r, store: fresh, log: () => {} });
+  assert.equal(svc2.publicFeed()[0].text, null);
+  assert.equal(svc2.publicFeed()[0].hash, a.hash);
+  advance(31 * 60_000);
+  await svc2.tick();
+  assert.equal(fresh.data.alerts[0].revealTx, undefined);
 });
