@@ -28,6 +28,9 @@ export function createApp({ provider, prov, r, store, adminToken, revealDelayMs,
     network: r.network, priceSats: String(r.price), intervalBlocks: String(r.interval), maxFeeSats: String(r.maxFee),
     minDepositSats: String(r.minDeposit), providerAddress: prov.address, revealDelayMinutes: Math.round(svc.revealDelayMs / 60000),
     maxAlertBytes: MAX_ALERT_BYTES,
+    // hackathon banner, set on the host so links can change without a new build
+    slidesUrl: process.env.SLIDES_URL || null, repoUrl: process.env.REPO_URL || 'https://github.com/mee0120/signalpass',
+    tokenAddress: process.env.TOKEN_ADDRESS || null,
   })));
   app.post('/api/session', wrap((req) => svc.session(req.body?.keys)));
   app.get('/api/wallet', wrap((req) => svc.wallet(session(req))));

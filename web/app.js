@@ -163,6 +163,14 @@ async function loadPublic() {
 // ---------- start ----------
 (async () => {
   cfg = await api('/api/config');
+  // hackathon banner: slides, repository, CashTokens address
+  $('bRepo').href = cfg.repoUrl;
+  if (cfg.slidesUrl) { $('bSlides').href = cfg.slidesUrl; $('bSlides').hidden = false; }
+  if (cfg.tokenAddress) {
+    $('bToken').textContent = cfg.tokenAddress; $('bTokenWrap').hidden = false;
+    $('bToken').onclick = () => navigator.clipboard?.writeText(cfg.tokenAddress).then(() => status('CashTokens address copied.', 'ok')).catch(() => {});
+  }
+  $('banner').hidden = false;
   $('price').textContent = sats(cfg.priceSats);
   $('interval').textContent = cfg.intervalBlocks === '1' ? 'once per block (about 10 minutes)' : `once per ${cfg.intervalBlocks} blocks`;
   $('reveal').textContent = cfg.revealDelayMinutes + ' minutes';

@@ -88,6 +88,7 @@ Start the server with these environment variables:
 | `NETWORK` | `mainnet` (default) or `chipnet` |
 | `REVEAL_DELAY_MINUTES` | default 30 |
 | `STATE_FILE` | default `data/state.json` |
+| `SLIDES_URL`, `REPO_URL`, `TOKEN_ADDRESS` | links shown in the banner at the top of the page |
 
 ```bash
 set -a; . ./.env; set +a; ADMIN_TOKEN=... npm start
@@ -98,6 +99,14 @@ free host awake until the text is revealed on chain:
 
 ```bash
 npm run alert -- "Deck the Pixels: 538 registered, 9 cash prizes"
+```
+
+Alerts can come straight from a bounty_watch database (the author's bounty and hackathon tracker): the best new open
+listing (score ≥ 50, first seen in the last 48 hours, not sent before) becomes one alert:
+
+```bash
+npm run bounty-feed -- --dry-run     # show what would be sent
+npm run bounty-feed                  # publish it
 ```
 
 Or call the API directly:
