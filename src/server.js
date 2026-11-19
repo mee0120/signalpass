@@ -2,6 +2,7 @@
 // signed in the subscriber's wallet), provider admin API, and the static app.
 import express from 'express';
 import { timingSafeEqual } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { ElectrumNetworkProvider, MockNetworkProvider } from 'cashscript';
 import { rules, providerWallet, buildDeposit, buildRefund, toWire, MAX_ALERT_BYTES } from './chain.js';
 import { Service, Store } from './service.js';
@@ -29,7 +30,7 @@ export function createApp({ provider, prov, r, store, adminToken, revealDelayMs,
     minDepositSats: String(r.minDeposit), providerAddress: prov.address, revealDelayMinutes: Math.round(svc.revealDelayMs / 60000),
     maxAlertBytes: MAX_ALERT_BYTES,
     // hackathon banner, set on the host so links can change without a new build
-    slidesUrl: process.env.SLIDES_URL || null, repoUrl: process.env.REPO_URL || 'https://github.com/mee0120/signalpass',
+    slidesUrl: process.env.SLIDES_URL || (existsSync(new URL('../public/slides.pdf', import.meta.url)) ? '/slides.pdf' : null), repoUrl: process.env.REPO_URL || 'https://github.com/mee0120/signalpass',
     tokenAddress: process.env.TOKEN_ADDRESS || null,
   })));
   app.post('/api/session', wrap((req) => svc.session(req.body?.keys)));
