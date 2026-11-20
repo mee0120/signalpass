@@ -12,7 +12,7 @@ SignalPass is a paid alert feed where the subscriber's money never leaves their 
 The wallet connection uses **WizardConnect** (tested with Selene on mainnet). The server only builds
 unsigned transactions; your wallet signs them.
 
-Built for **BCH BLAZE 2026**. Slides: [public/slides.pdf](public/slides.pdf) · Live app: https://signalpass.onrender.com
+Built for **BCH BLAZE 2026**. Starting point on Nov 14: [demo](https://mee0120.github.io/signal-escrow-proto/) · [code](https://github.com/mee0120/signal-escrow-proto). Slides: [public/slides.pdf](public/slides.pdf) · Live app: https://signalpass.onrender.com
 
 ## Try it
 
